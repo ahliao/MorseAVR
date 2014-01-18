@@ -16,3 +16,11 @@
 *.exe
 *.out
 *.app
+
+# Weird stuff from AVR
+*.elf
+*.eep
+*.map
+*.sym
+*.lss
+*.lst
