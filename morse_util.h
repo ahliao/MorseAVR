@@ -19,8 +19,8 @@
 #define BIN_S 0b01100000
 #define BIN_T 0b00100001
 #define BIN_U 0b01100100
-#define BIN_V 0b10000001
-#define BIN_W 0b01100011
+#define BIN_V 0b10001000
+#define BIN_W 0b01100110
 #define BIN_X 0b10001001
 #define BIN_Y 0b10001101
 #define BIN_Z 0b10000011
