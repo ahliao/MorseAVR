@@ -7,6 +7,7 @@
 #include <util/delay.h>
 
 #include <string.h>
+#include <stdlib.h>
 
 #include "lcd.h"
 #include "morse_util.h"
@@ -37,14 +38,19 @@ void incr_output_x(void);
 void init_morse(void);
 void init(void);
 void start_menu(void);
-void main_menu(void);
+uint8_t main_menu(void);
+void update_main(uint8_t i);
 void timer1_init(void);
+
+// get the c-string representation of a morse binary code
+char * morse2cstr(uint8_t);
+
+// The game modes
+void mode_prac1(void);
 
 // Globals, because this is easier and I'm tired
 uint16_t counter = 0;
 uint16_t unit_time = 0;
-//	uint16_t dash_time = 0;
-//	uint16_t init_input_time = 0;
 uint8_t bools = 0;
 uint8_t input = 0;
 uint8_t input_index = 0;
@@ -64,14 +70,136 @@ int main(void) {
 	start_menu();
 	
 	init_morse();
+	// For debugging:
+	//unit_time = 40;
 	
-	main_menu();
+	uint8_t selected_mode = 0;
+	selected_mode = main_menu();
+	
+	// Go the whatever the selected mode is
+	// Could use a switch later
+	if (selected_mode == 0)
+		mode_prac1();
 
 	return 0;	// Should never run
 }
 
-void main_menu() {
+uint8_t main_menu() {
+	LCDClear();	// Clear LCD
+	
+	uint8_t menu_x = 0;
+	uint8_t menu_size = 3;
+	LCDWriteStringXY(0,0,"Game Mode");
+	update_main(menu_x);
+	while (1) {	// for now just using infinite loops with breaks
+		if ((BUTTON_PIN & (1 << BUTTON_POS))) {
+			return menu_x;
+		}
+		// Handle what happens when the right or left btns are pressed
+		else if ((BTN_MOVE_L_PIN & (1 << BTN_MOVE_L_POS))) {
+			--menu_x;
+			if (menu_x < 0) menu_x = menu_size - 1;
+			update_main(menu_x);
+			_delay_ms(300);
+		} else if ((BTN_MOVE_R_PIN & (1 << BTN_MOVE_R_POS))) {
+			++menu_x;
+			if (menu_x >= menu_size) menu_x = 0;
+			update_main(menu_x);
+			_delay_ms(300);
+		}
+	}
+	return 99;
+}
+
+void update_main(uint8_t i) {
+	if (i == 0) { LCDWriteStringXY(0,1,"<-Practice 1->"); }
+	else if (i == 1) { LCDWriteStringXY(0,1,"<-Practice 2->"); }
+	else if (i == 2) { LCDWriteStringXY(0,1,"<-Morse Hero->"); }
+}
+
+// practice1 mode
+// will be typing the alphabet randomly
+void mode_prac1(void) {
+	// First Clear the LCD
 	LCDClear();
+	
+	// Small delay to avoid button bounces
+	_delay_ms(200);
+	
+	bools = 0;
+	char str_input[INPUT_LENGTH];
+	str_input[0] = 0;
+	const uint8_t INPUT_DEFAULT = 3;
+	input_index = INPUT_DEFAULT;
+	
+	uint8_t points = 0;	// goal is to get 20 points
+	const uint8_t goal = 20;
+	
+	// Choose a random letter and display it
+	uint8_t ra = 
+		(uint8_t)((double)rand() / ((double)RAND_MAX + 1) * MO_LENGTH);
+	LCDWriteStringXY(0,0,MO_CHAR_SYM[ra]);
+	
+	while (points < goal) {
+		if ((BUTTON_PIN & (1 << BUTTON_POS)) &&
+			!(bools & (1 << BOOL_BTN_DOWN))) {
+			bools |= (1 << BOOL_BTN_DOWN);
+			TCNT1 = 0;	// reset timer1
+			
+			// If the dot time is known and input has already started
+			if (unit_time != 0) {
+				if (counter <= unit_time*1) {
+					// It's a new part of the current letter
+					// This isn't really too important atm
+				} else {
+					/*if (print_mo_char(str_input)) {
+						// Got is right
+					}*/
+					incr_output_x();
+				} 
+			}
+			counter = 0; // reset the counter for the down state
+		} else if (!(BUTTON_PIN & (1 << BUTTON_POS)) && // Btn not pushed
+			(bools & (1 << BOOL_BTN_DOWN))) {	// And it was lifted
+
+			if (counter >= unit_time * 3) {
+				// We know that it is a dash
+				LCDWriteStringXY(input_index,1,"-");
+				input |= (1 << input_index++);				
+			} else {
+				LCDWriteStringXY(input_index,1,".");
+				input_index++;
+				// set it to 0, as in don't do anything
+			}
+			LCDWriteIntXY(10,1,input_index,2);
+			
+			counter = 0;	// Reset the counter
+			bools &= ~(1 << BOOL_BTN_DOWN);	// Set the button to DOWN		
+		} else if (counter > 7 * unit_time && input_index > INPUT_DEFAULT) {
+			//output_x -= 2;	// fix the double increase
+			/*if (print_mo_char(str_input)) {
+				// Got it right
+			}*/
+			//LCDWriteStringXY(0,0,"          ");
+			input_index = INPUT_DEFAULT;
+			input = 0;
+			counter = 0;
+		}
+		
+		// Handle what happens when the right or left btns are pressed
+		if ((BTN_MOVE_L_PIN & (1 << BTN_MOVE_L_POS))) {
+			// Reset the current entry
+		} else if ((BTN_MOVE_R_PIN & (1 << BTN_MOVE_R_POS))) {
+			// Go back to main menu
+		}
+		
+		// Handle the CTC timer
+		if (TIFR1 & (1 << OCF1A)) {
+			// Increment the counter if the button is down
+			++counter;
+			TIFR1 |= (1 << OCF1A);
+		}
+	}
 }
 
 void init_morse(void) {
@@ -80,6 +208,7 @@ void init_morse(void) {
 	LCDWriteStringXY(0,0,"Input .... .- -");
 	char str_input[INPUT_LENGTH];
 	str_input[0] = 0;
+	bools = 0;
 	
 	while(1) {
 		// Figure out what is a dot vs dash
@@ -245,4 +374,13 @@ void start_menu(void) {
 	while(!(BUTTON_PIN & (1 << BUTTON_POS)));
 	
 	_delay_ms(1000);
+}
+
+char * morse2cstr(uint8_t morse) {
+	
+	uint8_t morse_length = (morse << 5);
+	char * cstr[morse_length];
+	for (uint8_t i = 0; i < morse; ++i) {
+		
+	}
 }
