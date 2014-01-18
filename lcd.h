@@ -124,7 +124,7 @@ void LCDByte(uint8_t,uint8_t);
 #define LCDCmd(c) (LCDByte(c,0))
 #define LCDData(d) (LCDByte(d,1))
 
-void LCDBusyLoop();
+void LCDBusyLoop(void);
 
 
 
