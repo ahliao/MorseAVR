@@ -1,0 +1,164 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               	.global	init
+  11               	init:
+  12               	.LFB7:
+  13               		.file 1 "main.c"
+   1:main.c        **** // MHacks
+   2:main.c        **** // Alex Liao
+   3:main.c        **** // AVR Morse Code Educational Toy
+   4:main.c        **** // main.c --- Entry point
+   5:main.c        **** 
+   6:main.c        **** #include <avr/io.h>
+   7:main.c        **** #include <util/delay.h>
+   8:main.c        **** 
+   9:main.c        **** #include "lcd.h"
+  10:main.c        **** 
+  11:main.c        **** // PORT Assignments
+  12:main.c        **** #define BUTTON_PORT DDRB	// Port B1
+  13:main.c        **** #define BUTTON_POS 1		
+  14:main.c        **** 
+  15:main.c        **** // Function prototypes
+  16:main.c        **** void init(void);
+  17:main.c        **** 
+  18:main.c        **** int main(void) {
+  19:main.c        **** 	// Initialize the chip
+  20:main.c        **** 	init();
+  21:main.c        **** 	
+  22:main.c        **** 	//Clear the screen
+  23:main.c        **** 	LCDClear();
+  24:main.c        **** 	
+  25:main.c        **** 	//Simple string printing
+  26:main.c        **** 	LCDWriteString("MorseAVR");
+  27:main.c        **** 	LCDWriteStringXY(0,1,"Press the button");
+  28:main.c        **** 	//while((PINB & (1 << PB1)));
+  29:main.c        **** 	
+  30:main.c        **** 	while(1) {
+  31:main.c        **** 		if (PINB & (1 << PB1)) {
+  32:main.c        **** 			LCDWriteStringXY(1,1,"Pressed");
+  33:main.c        **** 		} else {
+  34:main.c        **** 			LCDClear();
+  35:main.c        **** 		}
+  36:main.c        **** 	}
+  37:main.c        **** 
+  38:main.c        **** 	return 0;	// Should never run
+  39:main.c        **** }
+  40:main.c        **** 
+  41:main.c        **** void init(void) {
+  14               		.loc 1 41 0
+  15               	/* prologue: function */
+  16               	/* frame size = 0 */
+  17               	/* stack size = 0 */
+  18               	.L__stack_usage = 0
+  42:main.c        **** 	//Initialize LCD module
+  43:main.c        **** 	LCDInit(LS_BLINK|LS_ULINE);
+  19               		.loc 1 43 0
+  20 0000 83E0      		ldi r24,lo8(3)
+  21 0002 0E94 0000 		call LCDInit
+  22               	.LVL0:
+  44:main.c        **** 	
+  45:main.c        **** 	// Set PORTB to input
+  46:main.c        **** 	BUTTON_PORT &= ~(1 << BUTTON_POS);
+  23               		.loc 1 46 0
+  24 0006 2198      		cbi 0x4,1
+  25 0008 0895      		ret
+  26               	.LFE7:
+  28               		.section	.rodata.str1.1,"aMS",@progbits,1
+  29               	.LC0:
+  30 0000 4D6F 7273 		.string	"MorseAVR"
+  30      6541 5652 
+  30      00
+  31               	.LC1:
+  32 0009 5072 6573 		.string	"Press the button"
+  32      7320 7468 
+  32      6520 6275 
+  32      7474 6F6E 
+  32      00
+  33               	.LC2:
+  34 001a 5072 6573 		.string	"Pressed"
+  34      7365 6400 
+  35               		.section	.text.startup,"ax",@progbits
+  36               	.global	main
+  38               	main:
+  39               	.LFB6:
+  18:main.c        **** int main(void) {
+  40               		.loc 1 18 0
+  41               	/* prologue: function */
+  42               	/* frame size = 0 */
+  43               	/* stack size = 0 */
+  44               	.L__stack_usage = 0
+  20:main.c        **** 	init();
+  45               		.loc 1 20 0
+  46 0000 0E94 0000 		call init
+  47               	.LVL1:
+  23:main.c        **** 	LCDClear();
+  48               		.loc 1 23 0
+  49 0004 60E0      		ldi r22,0
+  50 0006 81E0      		ldi r24,lo8(1)
+  51 0008 0E94 0000 		call LCDByte
+  52               	.LVL2:
+  26:main.c        **** 	LCDWriteString("MorseAVR");
+  53               		.loc 1 26 0
+  54 000c 80E0      		ldi r24,lo8(.LC0)
+  55 000e 90E0      		ldi r25,hi8(.LC0)
+  56 0010 0E94 0000 		call LCDWriteString
+  57               	.LVL3:
+  27:main.c        **** 	LCDWriteStringXY(0,1,"Press the button");
+  58               		.loc 1 27 0
+  59 0014 61E0      		ldi r22,lo8(1)
+  60 0016 80E0      		ldi r24,0
+  61 0018 0E94 0000 		call LCDGotoXY
+  62               	.LVL4:
+  63 001c 80E0      		ldi r24,lo8(.LC1)
+  64 001e 90E0      		ldi r25,hi8(.LC1)
+  65               	.L7:
+  66 0020 0E94 0000 		call LCDWriteString
+  67               	.LVL5:
+  68               	.L6:
+  31:main.c        **** 		if (PINB & (1 << PB1)) {
+  69               		.loc 1 31 0
+  70 0024 199B      		sbis 0x3,1
+  71 0026 00C0      		rjmp .L4
+  32:main.c        **** 			LCDWriteStringXY(1,1,"Pressed");
+  72               		.loc 1 32 0
+  73 0028 61E0      		ldi r22,lo8(1)
+  74 002a 81E0      		ldi r24,lo8(1)
+  75 002c 0E94 0000 		call LCDGotoXY
+  76               	.LVL6:
+  77 0030 80E0      		ldi r24,lo8(.LC2)
+  78 0032 90E0      		ldi r25,hi8(.LC2)
+  79 0034 00C0      		rjmp .L7
+  80               	.L4:
+  34:main.c        **** 			LCDClear();
+  81               		.loc 1 34 0
+  82 0036 60E0      		ldi r22,0
+  83 0038 81E0      		ldi r24,lo8(1)
+  84 003a 0E94 0000 		call LCDByte
+  85               	.LVL7:
+  86 003e 00C0      		rjmp .L6
+  87               	.LFE6:
+ 123               	.Letext0:
+ 124               		.file 2 "lcd.h"
+ 125               		.file 3 "/usr/lib/gcc/avr/4.7.0/../../../avr/include/stdint.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+     /tmp/ccf9LfvK.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccf9LfvK.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccf9LfvK.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccf9LfvK.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccf9LfvK.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccf9LfvK.s:11     .text:0000000000000000 init
+     /tmp/ccf9LfvK.s:38     .text.startup:0000000000000000 main
+
+UNDEFINED SYMBOLS
+LCDInit
+LCDByte
+LCDWriteString
+LCDGotoXY
+__do_copy_data

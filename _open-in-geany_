@@ -1,0 +1,2 @@
+#!/bin/bash
+geany -c /home/ahliao/.config/geany-avr `ls -1 *.h` main.c || zenity --error --text="That didn't seem to work :-("
