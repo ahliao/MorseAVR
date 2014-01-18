@@ -42,8 +42,8 @@ void init_morse(void) {
 	
 	uint16_t counter = 0;
 	uint16_t unit_time = 0;
-	uint16_t dash_time = 0;
-	uint16_t init_input_time = 0;
+//	uint16_t dash_time = 0;
+//	uint16_t init_input_time = 0;
 	uint8_t bools = 0;
 	uint8_t input = 0;
 	uint8_t input_index = 0;
@@ -58,17 +58,34 @@ void init_morse(void) {
 			
 			// If the dot time is known and input has already started
 			if (unit_time != 0) {
-				if (counter <= unit_time) {
+				if (counter <= unit_time*3) {
 					// It's a new part of the current letter
-					
-				} else if (counter <= 3 * unit_time) {
+					// This isn't really too important atm
+				} else if (counter <= 30 * unit_time) {
 					// It's a new letter
+					// Assign the size of the letter to the bitstring
+					input |= (input_index << 5);
+					// Check if it's an actual letter
+					// Find out which letter it is
+					for (int i = 0; i < MO_LENGTH; ++i) {
+						if (input == MO_CHAR[i]) {
+							LCDWriteStringXY(0,1,i);
+							break;
+						}
+					}
+					input_index = 0; // reset the index
 					
+					
+					/*if (input == MO_H) {
+						LCDWriteStringXY(0,1,"H");
+					}*/
+					input = 0;
 				} else {
 					// It's a new word
 					
 				}
 			}
+			counter = 0; // reset the counter for the down state
 		} else if (!(BUTTON_PIN & (1 << BUTTON_POS)) && // Btn not pushed
 			(bools & (1 << BOOL_BTN_DOWN))) {	// And it was lifted
 
@@ -92,9 +109,10 @@ void init_morse(void) {
 				
 				// set it to 0, as in don't do anything
 			}
+			LCDWriteIntXY(10,1,input_index,2);
 			
-			counter = 0;
-			bools &= ~(1 << BOOL_BTN_DOWN);
+			counter = 0;	// Reset the counter
+			bools &= ~(1 << BOOL_BTN_DOWN);	// Set the button to DOWN
 			
 			//LCDClear();
 			//LCDWriteStringXY(1,0,"Lifted up");
@@ -135,7 +153,7 @@ void init_morse(void) {
 			
 			counter = 0;
 			bools &= ~(1 << BOOL_BTN_DOWN);*/
-		} else if ((BUTTON_PIN & (1 << BUTTON_POS)) &&
+		/*} else if ((BUTTON_PIN & (1 << BUTTON_POS)) &&
 			(TIFR1 & (1 << OCF1A))) {
 			// Increment the counter if the button is down
 			++counter;
@@ -144,6 +162,14 @@ void init_morse(void) {
 		} else {
 			// The button is up for a while
 			
+		}*/
+		
+		
+		}
+		if (TIFR1 & (1 << OCF1A)) {
+			// Increment the counter if the button is down
+			++counter;
+			TIFR1 |= (1 << OCF1A);
 		}
 	}
 }
