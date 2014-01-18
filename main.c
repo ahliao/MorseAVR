@@ -30,13 +30,14 @@
 #define BOOL_INIT_DOT 	2
 
 // Function prototypes
-void print_mo_char(char str_in[]);
+char print_mo_char(char str_in[]);
 //void print_mo_char(void);
 void incr_output_x(void);
 
 void init_morse(void);
 void init(void);
 void start_menu(void);
+void main_menu(void);
 void timer1_init(void);
 
 // Globals, because this is easier and I'm tired
@@ -63,8 +64,14 @@ int main(void) {
 	start_menu();
 	
 	init_morse();
+	
+	main_menu();
 
 	return 0;	// Should never run
+}
+
+void main_menu() {
+	LCDClear();
 }
 
 void init_morse(void) {
@@ -72,6 +79,7 @@ void init_morse(void) {
 	
 	LCDWriteStringXY(0,0,"Input .... .- -");
 	char str_input[INPUT_LENGTH];
+	str_input[0] = 0;
 	
 	while(1) {
 		// Figure out what is a dot vs dash
@@ -87,7 +95,10 @@ void init_morse(void) {
 					// It's a new part of the current letter
 					// This isn't really too important atm
 				} else {
-					print_mo_char(str_input);
+					if (print_mo_char(str_input)) {
+						// Finished init, go to menu
+						break;
+					}
 					incr_output_x();
 				} 
 			}
@@ -121,7 +132,10 @@ void init_morse(void) {
 			bools &= ~(1 << BOOL_BTN_DOWN);	// Set the button to DOWN		
 		} else if (counter > 7 * unit_time && input_index > 0) {
 			//output_x -= 2;	// fix the double increase
-			print_mo_char(str_input);
+			if (print_mo_char(str_input)) {
+				// Finished init, go to menu
+				break;
+			}
 			LCDWriteStringXY(0,0,"          ");
 			input_index = 0;
 			input = 0;
@@ -156,9 +170,10 @@ void init_morse(void) {
 			TIFR1 |= (1 << OCF1A);
 		}
 	}
+	_delay_ms(1000);
 }
 
-void print_mo_char(char str_in[]) {
+char print_mo_char(char str_in[]) {
 	// It's a new letter
 	// Assign the size of the letter to the bitstring
 	input |= (input_index << 5);
@@ -171,15 +186,17 @@ void print_mo_char(char str_in[]) {
 			strcat(str_in, MO_CHAR_SYM[i]);
 			LCDWriteStringXY(0,1,str_in);
 			if (!strcmp(str_in, STR_HAT)) {
-				LCDWriteStringXY(0,1,"You tapped HAT");
+				LCDWriteStringXY(0,1,"Unit Init Done");
+				return 1;
 			}
 			break;
 		}
 	}
+	return 0;
 }
 
 void incr_output_x(void) {
-	if (counter <= 7 * unit_time) {
+	if (counter > unit_time * 1 && counter <= 7 * unit_time) {
 		++output_x;
 		LCDWriteIntXY(15, 0, output_x,1);
 		input_index = 0; // reset the index
