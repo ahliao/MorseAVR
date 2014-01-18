@@ -6,6 +6,8 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
+#include <string.h>
+
 #include "lcd.h"
 #include "morse_util.h"
 
@@ -28,7 +30,8 @@
 #define BOOL_INIT_DOT 	2
 
 // Function prototypes
-void print_mo_char(void);
+void print_mo_char(char str_in[]);
+//void print_mo_char(void);
 void incr_output_x(void);
 
 void init_morse(void);
@@ -44,6 +47,10 @@ uint16_t unit_time = 0;
 uint8_t bools = 0;
 uint8_t input = 0;
 uint8_t input_index = 0;
+const uint8_t INPUT_LENGTH = 16;
+uint8_t str_input_index = 0;
+
+const char * STR_HAT = "HAT";
 
 uint8_t output_x = 0;
 uint8_t output_y = 1;
@@ -63,7 +70,8 @@ int main(void) {
 void init_morse(void) {
 	LCDClear();
 	
-
+	LCDWriteStringXY(0,0,"Input .... .- -");
+	char str_input[INPUT_LENGTH];
 	
 	while(1) {
 		// Figure out what is a dot vs dash
@@ -79,7 +87,7 @@ void init_morse(void) {
 					// It's a new part of the current letter
 					// This isn't really too important atm
 				} else {
-					print_mo_char();
+					print_mo_char(str_input);
 					incr_output_x();
 				} 
 			}
@@ -113,7 +121,7 @@ void init_morse(void) {
 			bools &= ~(1 << BOOL_BTN_DOWN);	// Set the button to DOWN		
 		} else if (counter > 7 * unit_time && input_index > 0) {
 			//output_x -= 2;	// fix the double increase
-			print_mo_char();
+			print_mo_char(str_input);
 			LCDWriteStringXY(0,0,"          ");
 			input_index = 0;
 			input = 0;
@@ -150,7 +158,7 @@ void init_morse(void) {
 	}
 }
 
-void print_mo_char(void) {
+void print_mo_char(char str_in[]) {
 	// It's a new letter
 	// Assign the size of the letter to the bitstring
 	input |= (input_index << 5);
@@ -159,7 +167,12 @@ void print_mo_char(void) {
 	for (int i = 0; i < MO_LENGTH; ++i) {
 		if (input == MO_CHAR[i]) {
 			LCDWriteStringXY(output_x,output_y,
-			MO_CHAR_SYM[i]);
+				MO_CHAR_SYM[i]);
+			strcat(str_in, MO_CHAR_SYM[i]);
+			LCDWriteStringXY(0,1,str_in);
+			if (!strcmp(str_in, STR_HAT)) {
+				LCDWriteStringXY(0,1,"You tapped HAT");
+			}
 			break;
 		}
 	}
