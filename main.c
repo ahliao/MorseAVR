@@ -11,6 +11,7 @@
 
 #include "lcd.h"
 #include "morse_util.h"
+#include "led_util.h"
 
 // PORT Assignments
 #define BUTTON_PORT DDRB	// Port B1
@@ -45,11 +46,17 @@ void update_main(uint8_t i);
 void timer1_init(void);
 
 // get the c-string representation of a morse binary code
+void cstr2morse(char * cstr, char * result, int in_length);
 void morse2cstr(uint8_t,char *);
 
 // The game modes
 void mode_prac1(void);
 uint8_t prac1_get_question(void);
+
+void mode_hero(void);
+void mode_hero_easy(void);
+void mode_hero_hard(void);
+uint8_t mode_hero_dir(void);
 
 // Globals, because this is easier and I'm tired
 uint16_t counter = 0;
@@ -65,6 +72,8 @@ const char * STR_HAT = "HAT";
 uint8_t output_x = 0;
 uint8_t output_y = 1;
 
+
+
 int main(void) {
 	
 	srand(10);
@@ -72,21 +81,30 @@ int main(void) {
 	init();
 	
 	// The start menu of the game
-	start_menu();
+	//start_menu();
+	
+	// LED test
+	/*PORTC |= (1 << 2);
+	PORTC |= (1 << 3);
+	PORTC |= (1 << 4);*/
 	
 	//init_morse();
 	// For debugging:
 	unit_time = 13;
 	
-	uint8_t selected_mode = 0;
-	selected_mode = main_menu();
+	uint8_t selected_mode = 2;
+	while (1) {
+		//selected_mode = main_menu();
 	
-	// Go the whatever the selected mode is
-	// Could use a switch later
-	if (selected_mode == 0)
-		mode_prac1();
+		// Go the whatever the selected mode is
+		// Could use a switch later
+		if (selected_mode == 0)
+			mode_prac1();
+		else if (selected_mode == 2)
+			mode_hero();
 		
-	LCDClear();
+		LCDClear();
+	}
 	LCDWriteStringXY(0,0,"HI DENNY");
 
 	return 0;	// Should never run
@@ -95,12 +113,13 @@ int main(void) {
 uint8_t main_menu() {
 	LCDClear();	// Clear LCD
 	
-	uint8_t menu_x = 0;
+	int8_t menu_x = 0;
 	uint8_t menu_size = 3;
 	LCDWriteStringXY(0,0,"Game Mode");
 	update_main(menu_x);
 	while (1) {	// for now just using infinite loops with breaks
 		if ((BUTTON_PIN & (1 << BUTTON_POS))) {
+			_delay_ms(1000);
 			return menu_x;
 		}
 		// Handle what happens when the right or left btns are pressed
@@ -108,12 +127,36 @@ uint8_t main_menu() {
 			--menu_x;
 			if (menu_x < 0) menu_x = menu_size - 1;
 			update_main(menu_x);
-			_delay_ms(300);
+			_delay_ms(200);
 		} else if ((BTN_MOVE_R_PIN & (1 << BTN_MOVE_R_POS))) {
 			++menu_x;
 			if (menu_x >= menu_size) menu_x = 0;
 			update_main(menu_x);
-			_delay_ms(300);
+			_delay_ms(200);
+		}
+		// Handle the CTC timer
+		if (TIFR1 & (1 << OCF1A)) {
+			// Increment the counter if the button is down
+			++counter;
+			TIFR1 |= (1 << OCF1A);
+			
+			// handle LED stuff
+			if (led_counter++ > led_speed) {
+				led_counter = 0;
+				if (led_anim == 0) {
+					LED_PORT &= ~((1 << LED_R) | (1 << LED_B) | (1 << LED_G));
+					LED_PORT |= LED_ANIM_0[led_anim_index];
+					++led_anim_index;
+					if (led_anim_index >= LED_ANIM_0_LENGTH)
+						led_anim_index = 0;
+				} else if (led_anim == 1) {
+					LED_PORT &= ~((1 << LED_R) | (1 << LED_B) | (1 << LED_G));
+					LED_PORT |= LED_ANIM_1[led_anim_index];
+					++led_anim_index;
+					if (led_anim_index >= LED_ANIM_1_LENGTH)
+						led_anim_index = 0;
+				}
+			}
 		}
 	}
 	return 99;
@@ -125,6 +168,97 @@ void update_main(uint8_t i) {
 	else if (i == 2) { LCDWriteStringXY(0,1,"<-Morse Hero->"); }
 }
 
+// morse hero mode
+// It's like guitar hero
+void mode_hero(void) {
+	// Setup the hero
+	uint8_t difficulty = mode_hero_dir();
+	
+	LCDClear();
+	
+	// The easy mode of hero
+	mode_hero_easy();
+
+}
+
+void mode_hero_easy(void) {	
+	int8_t out_x = 15;
+	int8_t counter = 0;
+	int8_t frame_compare = 30;
+	
+	char round1[] = "DENNY IS A SEXY MAN";
+	uint8_t round1_length = sizeof(round1)/sizeof(round1[0]);
+	char result[128];
+	cstr2morse(round1, result, round1_length);
+	int16_t str_offset = 0;
+	
+	while (1) {
+		
+		if (counter > frame_compare) {
+			// add in scrolling
+			// write only a substring
+			char substr[16];
+			strncpy(substr, result+str_offset, 15);
+			substr[15] = 0;
+			LCDWriteStringXY(out_x,0,substr);
+			LCDGotoXY(0,1);
+				
+			if (out_x > 0) --out_x;
+			else {
+				++str_offset;
+				if (result[str_offset] == '\0') {
+					str_offset = 0;
+					out_x = 15;
+				}
+			}
+			counter = 0;
+		}
+		
+		// Handle the CTC timer
+		if (TIFR1 & (1 << OCF1A)) {
+			// Increment the counter if the button is down
+			++counter;
+			TIFR1 |= (1 << OCF1A);
+		}
+	}
+}
+
+void mode_hero_hard(void) {
+	
+}
+
+uint8_t mode_hero_dir(void) {
+	uint8_t dif = 0;	// EASY
+	
+	LCDClear();
+	
+	LCDWriteString("MORSE HERO!");
+	LCDWriteStringXY(0,1,"Play it like");
+	
+	while(!(BUTTON_PIN & (1 << BUTTON_POS)));
+	_delay_ms(400);	
+	LCDClear();
+	LCDWriteStringXY(0,0,"Guitar Hero!");
+	LCDWriteStringXY(1,1,"Easy");
+	LCDWriteStringXY(10,1,"Hard");
+	LCDWriteStringXY(6, 1, "<--");
+	LCDGotoXY(15,1);
+	while(!(BUTTON_PIN & (1 << BUTTON_POS))) {
+		// Handle what happens when the right or left btns are pressed
+		if ((BTN_MOVE_L_PIN & (1 << BTN_MOVE_L_POS))) {
+			dif = 0;
+			LCDWriteStringXY(6, 1, "<--");
+			LCDGotoXY(15,1);
+		} else if ((BTN_MOVE_R_PIN & (1 << BTN_MOVE_R_POS))) {
+			dif = 1;
+			LCDWriteStringXY(6, 1, "-->");
+			LCDGotoXY(15,1);
+		}
+	}
+	_delay_ms(1000);	
+	return dif;
+}
+
 // practice1 mode
 // will be typing the alphabet randomly
 void mode_prac1(void) {
@@ -133,6 +267,8 @@ void mode_prac1(void) {
 	
 	// Small delay to avoid button bounces
 	_delay_ms(200);
+	
+	
 	
 	bools = 0;
 	char str_input[INPUT_LENGTH];
@@ -170,9 +306,26 @@ void mode_prac1(void) {
 					incr_output_x();
 				} */
 			}
+
+			if (led_anim == 0) {
+				LED_PORT &= ~((1 << LED_R) | (1 << LED_B) | (1 << LED_G));
+				LED_PORT |= LED_ANIM_0[led_anim_index];
+				++led_anim_index;
+				if (led_anim_index >= LED_ANIM_0_LENGTH)
+					led_anim_index = 0;
+			} else if (led_anim == 1) {
+				LED_PORT &= ~((1 << LED_R) | (1 << LED_B) | (1 << LED_G));
+				LED_PORT |= LED_ANIM_1[led_anim_index];
+				++led_anim_index;
+				if (led_anim_index >= LED_ANIM_1_LENGTH)
+					led_anim_index = 0;
+			}
+
 			counter = 0; // reset the counter for the down state
 		} else if (!(BUTTON_PIN & (1 << BUTTON_POS)) && // Btn not pushed
 			(bools & (1 << BOOL_BTN_DOWN))) {	// And it was lifted
+
+			//if (led_n > 4) led_n = 2;
 
 			if (counter >= unit_time * 3) {
 				// We know that it is a dash
@@ -191,20 +344,29 @@ void mode_prac1(void) {
 			}
 			LCDWriteIntXY(10,1,input_index,2);
 			
+			if (led_anim == 0) {
+				LED_PORT &= ~((1 << LED_R) | (1 << LED_B) | (1 << LED_G));
+				LED_PORT |= LED_ANIM_0[led_anim_index];
+				++led_anim_index;
+				if (led_anim_index >= LED_ANIM_0_LENGTH)
+					led_anim_index = 0;
+			} else if (led_anim == 1) {
+				LED_PORT &= ~((1 << LED_R) | (1 << LED_B) | (1 << LED_G));
+				LED_PORT |= LED_ANIM_1[led_anim_index];
+				++led_anim_index;
+				if (led_anim_index >= LED_ANIM_1_LENGTH)
+					led_anim_index = 0;
+			}
+			
 			counter = 0;	// Reset the counter
 			bools &= ~(1 << BOOL_BTN_DOWN);	// Set the button to DOWN		
 		} else if (counter > 7 * unit_time && input_index > INPUT_DEFAULT) {
 			int match = 0;
-			//input &= 0b00011111;
-				//LCDWriteIntXY(12,0,input,3);
+			
 				input |= (input_index << 5);
-				//++input;
-				//input = 0b01100001;
-				//LCDWriteIntXY(12,1,input,3);
-				//input = 0b01100001;
 				if (input == MO_CHAR[rand_val]) {
-					match = 1;
-				}
+				match = 1;
+			}
 			if (match){// && print_mo_char(6,1,str_input,MO_CHAR_SYM[rand_val])) {
 				// Got it right
 				// Get a new question and add a point
@@ -225,15 +387,14 @@ void mode_prac1(void) {
 		}
 		
 		// Handle what happens when the right or left btns are pressed
-		/*if ((BTN_MOVE_L_PIN & (1 << BTN_MOVE_L_POS))) {
+		if ((BTN_MOVE_L_PIN & (1 << BTN_MOVE_L_POS))) {
 			// Reset the current entry
 			input_index = INPUT_DEFAULT;
 			input = 0;
-			str_input_index = 0;
-			str_input[0] = 0;
 		} else if ((BTN_MOVE_R_PIN & (1 << BTN_MOVE_R_POS))) {
 			// Go back to main menu
-		}*/
+			break;
+		}
 		
 		// Handle the CTC timer
 		if (TIFR1 & (1 << OCF1A)) {
@@ -253,7 +414,7 @@ uint8_t prac1_get_question(void) {
 	LCDWriteStringXY(6,0,MO_CHAR_SYM[ra]);
 	
 	// Display the dot-dash form
-	uint8_t morse_length = (MO_CHAR[ra] << 5);
+	//uint8_t morse_length = (MO_CHAR[ra] << 5);
 	char str_morse[10];
 	morse2cstr(MO_CHAR[ra], str_morse);
 	LCDWriteStringXY(0,0,str_morse);
@@ -428,6 +589,9 @@ void init(void) {
 	BTN_MOVE_R_PORT &= ~(1 << BTN_MOVE_R_POS); // Theright btn
 	BTN_MOVE_L_PORT &= ~(1 << BTN_MOVE_L_POS); // The left btn
 	
+	// Set PORTC 2,3,4 to output
+	DDRC |= (1 << 2) | (1 << 3) | (1 << 4);
+	
 	timer1_init();	// Initialize the timer
 }
 
@@ -452,6 +616,24 @@ void start_menu(void) {
 	while(!(BUTTON_PIN & (1 << BUTTON_POS)));
 	
 	_delay_ms(1000);
+}
+
+void cstr2morse(char * cstr, char * result, int in_length) {
+	char temp[5];
+	char space3[] = "   ";
+	char space7[] = "       ";
+	for (int i = 0; i < in_length; ++i) {
+		if (cstr[i] == ' ') {
+			// between words is 7 spaces
+			strcat(result, space7);
+		} else {
+			morse2cstr(MO_CHAR[cstr[i]-65], temp);
+			strcat(result, temp);
+			strcat(result, space3);
+		}
+	}
+	//result[] = 0;
+	strcat(result, "\0");
 }
 
 void morse2cstr(uint8_t morse, char * rtstr) {
