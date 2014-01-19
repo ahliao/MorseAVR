@@ -1,6 +1,6 @@
 #define LED_R 2
-#define LED_G 3
-#define LED_B 4
+#define LED_G 4
+#define LED_B 3
 #define LED_PORT PORTC
 
 // LED chooser logic vars

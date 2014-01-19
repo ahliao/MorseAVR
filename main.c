@@ -31,6 +31,7 @@
 #define BOOL_INIT_DONE 	1
 #define BOOL_INIT_DOT 	2
 #define BOOL_START_COUNT 3
+#define BOOL_HERO_POINT 4
 
 // Function prototypes
 char print_mo_char(uint8_t x_r, uint8_t y_r, char str_in[],
@@ -47,6 +48,7 @@ void timer1_init(void);
 
 // get the c-string representation of a morse binary code
 void cstr2morse(char * cstr, char * result, int in_length);
+void morse2cstr_hero(uint8_t morse, char * rtstr);
 void morse2cstr(uint8_t,char *);
 
 // The game modes
@@ -83,18 +85,13 @@ int main(void) {
 	// The start menu of the game
 	//start_menu();
 	
-	// LED test
-	/*PORTC |= (1 << 2);
-	PORTC |= (1 << 3);
-	PORTC |= (1 << 4);*/
-	
 	//init_morse();
 	// For debugging:
-	unit_time = 13;
+	unit_time = 35;
 	
-	uint8_t selected_mode = 2;
+	uint8_t selected_mode = 0;
 	while (1) {
-		//selected_mode = main_menu();
+		selected_mode = main_menu();
 	
 		// Go the whatever the selected mode is
 		// Could use a switch later
@@ -105,7 +102,7 @@ int main(void) {
 		
 		LCDClear();
 	}
-	LCDWriteStringXY(0,0,"HI DENNY");
+	LCDWriteStringXY(0,0,"MHACKS");
 
 	return 0;	// Should never run
 }
@@ -134,11 +131,15 @@ uint8_t main_menu() {
 			update_main(menu_x);
 			_delay_ms(200);
 		}
+		
+		
 		// Handle the CTC timer
 		if (TIFR1 & (1 << OCF1A)) {
 			// Increment the counter if the button is down
 			++counter;
 			TIFR1 |= (1 << OCF1A);
+			
+			
 			
 			// handle LED stuff
 			if (led_counter++ > led_speed) {
@@ -183,21 +184,33 @@ void mode_hero(void) {
 
 void mode_hero_easy(void) {	
 	int8_t out_x = 15;
-	int8_t counter = 0;
-	int8_t frame_compare = 30;
+	int8_t frame_counter = 0;
+	int8_t unit_speed = 30; // maybe use unit_time
+	int8_t frame_compare = unit_time;
+	int points = 0;
 	
-	char round1[] = "DENNY IS A SEXY MAN";
+	char substr[16];
+	uint8_t in_x = 0;
+	
+	char round1[] = "Clark is a cool guy One day he went to eat chicken and ate chicken so Cool";
 	uint8_t round1_length = sizeof(round1)/sizeof(round1[0]);
-	char result[128];
+	char result[384];
+	result[0] = 0;
 	cstr2morse(round1, result, round1_length);
 	int16_t str_offset = 0;
 	
+	uint8_t speaker_counter = 0;
+	
 	while (1) {
 		
-		if (counter > frame_compare) {
+		if (frame_counter > frame_compare) {
+			bools &= ~(1 << BOOL_HERO_POINT);
+			LED_PORT ^= (1 << LED_B);
+			LED_PORT &= ~(1 << LED_G);
+			LED_PORT &= ~(1 << LED_R);
 			// add in scrolling
 			// write only a substring
-			char substr[16];
+			
 			strncpy(substr, result+str_offset, 15);
 			substr[15] = 0;
 			LCDWriteStringXY(out_x,0,substr);
@@ -205,22 +218,106 @@ void mode_hero_easy(void) {
 				
 			if (out_x > 0) --out_x;
 			else {
+				if (substr[0] == '-') 
+					frame_compare = unit_time * 3.5;
+				else frame_compare = unit_time * 1;
 				++str_offset;
 				if (result[str_offset] == '\0') {
 					str_offset = 0;
 					out_x = 15;
+					break;	// Go back to the menu
 				}
 			}
-			counter = 0;
+			frame_counter = 0;
 		}
 		
+		// Handle the input
+		if ((BUTTON_PIN & (1 << BUTTON_POS)) &&
+			!(bools & (1 << BOOL_BTN_DOWN)) &&
+			!(bools & (1 << BOOL_HERO_POINT))) {
+				bools |= (1 << BOOL_START_COUNT);
+				bools |= (1 << BOOL_BTN_DOWN);
+				bools |= (1 << BOOL_HERO_POINT);
+				TCNT1 = 0;	// reset timer1
+			
+				// If the dot time is known and input has already started
+				if (unit_time != 0) {
+					if (counter <= unit_time*1) {
+						// It's a new part of the current letter
+						// This isn't really too important atm
+					} else {
+					
+					} 
+				}
+
+				counter = 0; // reset the counter for the down state
+			} else if (!(BUTTON_PIN & (1 << BUTTON_POS)) && // Btn not pushed
+				(bools & (1 << BOOL_BTN_DOWN))) {	// And it was lifted
+
+				if (counter >= unit_time * 2) {
+					// We know that it is a dash
+					LCDWriteStringXY(0,1,"-");
+					input |= (1 << input_index);
+					if (str_offset > 0 && 
+						(result[str_offset-1] == '-')) {
+						LED_PORT |= (1 << LED_G);
+						LED_PORT &= ~(1 << LED_B);
+						LED_PORT &= ~(1 << LED_R);
+						++points;
+					} else {
+						--points;
+						LED_PORT |= (1 << LED_R);
+						LED_PORT &= ~(1 << LED_B);
+						LED_PORT &= ~(1 << LED_G);
+					}
+				} else {
+					LCDWriteStringXY(0,1,".");
+					input &= ~(1 << input_index);
+					if (str_offset > 0 && result[str_offset-1] == '.') {
+						LED_PORT |= (1 << LED_G);
+						LED_PORT &= ~(1 << LED_B);
+						LED_PORT &= ~(1 << LED_R);
+						++points;
+					} else {
+						--points;
+						LED_PORT |= (1 << LED_R);
+						LED_PORT &= ~(1 << LED_B);
+						LED_PORT &= ~(1 << LED_G);
+					}
+					// set it to 0, as in don't do anything
+				}
+				if (points < 0) points = 0;
+				LCDWriteIntXY(12,1,points,2);
+				counter = 0;	// Reset the counter
+				bools &= ~(1 << BOOL_BTN_DOWN);	// Set the button to DOWN		
+				
+			} else {
+				//LED_PORT &= ~(1 << LED_G);
+				//LED_PORT &= ~(1 << LED_R);
+			}
+			if ((BTN_MOVE_R_PIN & (1 << BTN_MOVE_R_POS))) {
+				// Go back to main menu
+				break;
+			}
+		// Speaker fun
+		if (bools & (1 << BOOL_BTN_DOWN)) {
+			if (speaker_counter > 0) {
+				speaker_counter = 0;
+				if (OCR0B != 0) OCR0B = 0;
+				else OCR0B = 140;
+			}
+		}
 		// Handle the CTC timer
 		if (TIFR1 & (1 << OCF1A)) {
 			// Increment the counter if the button is down
+			++frame_counter;
+			++speaker_counter;
 			++counter;
+			
 			TIFR1 |= (1 << OCF1A);
 		}
 	}
+	_delay_ms(2000);
 }
 
 void mode_hero_hard(void) {
@@ -268,7 +365,7 @@ void mode_prac1(void) {
 	// Small delay to avoid button bounces
 	_delay_ms(200);
 	
-	
+	uint8_t speaker_counter = 0;
 	
 	bools = 0;
 	char str_input[INPUT_LENGTH];
@@ -395,11 +492,21 @@ void mode_prac1(void) {
 			// Go back to main menu
 			break;
 		}
-		
+		// Speaker fun
+		if (bools & (1 << BOOL_BTN_DOWN)) {
+			if (speaker_counter > 0) {
+				speaker_counter = 0;
+				if (OCR0B != 0) OCR0B = 0;
+				else OCR0B = 140;
+			}
+		}
 		// Handle the CTC timer
 		if (TIFR1 & (1 << OCF1A)) {
 			// Increment the counter if the button is down
-			if (bools & (1 << BOOL_START_COUNT)) ++counter;
+			if (bools & (1 << BOOL_START_COUNT)) { 
+				++counter;
+				++speaker_counter;
+			}
 			TIFR1 |= (1 << OCF1A);
 		}
 	}
@@ -593,6 +700,7 @@ void init(void) {
 	DDRC |= (1 << 2) | (1 << 3) | (1 << 4);
 	
 	timer1_init();	// Initialize the timer
+	timer0_init();
 }
 
 void timer1_init(void) {
@@ -604,6 +712,17 @@ void timer1_init(void) {
  
     // initialize compare value
     OCR1A = 4999;
+}
+
+void timer0_init(void) {
+	// initialize timer0 in PWM mode
+    TCCR0A |= (1<<WGM00)|(1<<COM0B1)|(1<<WGM01);
+    TCCR0B |= (1 << CS00);
+ 
+    // make sure to make OC0 pin (pin PB3 for atmega32) as output pin
+    DDRD |= (1<<5);
+    
+    OCR0B = 120;
 }
 
 void start_menu(void) {
@@ -620,20 +739,38 @@ void start_menu(void) {
 
 void cstr2morse(char * cstr, char * result, int in_length) {
 	char temp[5];
-	char space3[] = "   ";
-	char space7[] = "       ";
+	char space2[] = "  ";
+	char space4[] = "    ";
 	for (int i = 0; i < in_length; ++i) {
 		if (cstr[i] == ' ') {
 			// between words is 7 spaces
-			strcat(result, space7);
+			strcat(result, space4);
 		} else {
-			morse2cstr(MO_CHAR[cstr[i]-65], temp);
+			morse2cstr_hero(MO_CHAR[cstr[i]-65], temp);
 			strcat(result, temp);
-			strcat(result, space3);
+			strcat(result, space2);
 		}
 	}
 	//result[] = 0;
 	strcat(result, "\0");
+}
+
+void morse2cstr_hero(uint8_t morse, char * rtstr) {
+	uint8_t str_index = 0;
+	uint8_t morse_length = (morse >> 5);
+	//char cstr[morse_length];
+	//LCDWriteIntXY(0,0,morse_length,2);
+	for (uint8_t i = 0; i < morse_length; ++i) {
+		if (morse & (1 << i)) {
+			rtstr[str_index++] = (char) '-';
+			//rtstr[str_index++] = (char) '-';
+			//rtstr[str_index++] = (char) '-';
+		}
+		else rtstr[str_index++] = (char) '.';
+		//rtstr[str_index++] = (char) 'a';
+	}
+	rtstr[str_index] = 0;
+	//rtstr = cstr;
 }
 
 void morse2cstr(uint8_t morse, char * rtstr) {
